@@ -1,0 +1,9 @@
+server {
+    listen 80;
+    server_name 192.168.7.103;
+
+    location / {
+        include uwsgi_params;
+        uwsgi_pass unix:/home/trandatdt/flask-uwsgi-nginx-example/Ubuntu-14-and-older/flask-uwsgi-nginx-example.sock;
+    }
+}

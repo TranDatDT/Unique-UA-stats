@@ -1,0 +1,56 @@
+- hosts: webservers
+  become: yes
+  become_method: sudo
+  tasks:
+  - name: update cache
+    apt: name=python-software-properties state=present update_cache=yes cache_valid_time=43200
+  - name: install packages
+    apt: name={{item}} state=present
+    with_items:
+      - python3-pip
+      - python3-dev
+      - python-pip
+      - python-dev
+      - python-virtualenv
+      - nginx
+      - redis-server
+
+- hosts: webservers
+  tasks:
+  - name: copy source code
+    copy:
+      src: /home/{{ ansible_ssh_user }}/{{ app_name }}/Ubuntu-14-and-older
+      dest: /home/{{ ansible_ssh_user }}/{{ app_name }}
+  - name: install modules in a virtualenv
+    pip:
+      requirements: /home/{{ ansible_ssh_user }}/{{ app_name }}/Ubuntu-14-and-older/requirements.txt
+      virtualenv: /home/{{ ansible_ssh_user }}/{{ app_name }}/Ubuntu-14-and-older/env
+
+- hosts: webservers
+  become: yes
+  become_method: sudo
+  tasks:
+  - name: copy redis.conf
+    copy: src=redis.conf dest=/etc/redis/
+  - name: restart redis
+    service: name=redis-server state=restarted enabled=yes
+  - name: copy Upstart script
+    copy: src={{ app_name }}.conf dest=/etc/init/
+  - name: start app service
+    service: name={{ app_name }} state=restarted enabled=yes
+  - name: template nginx site config
+    template: src={{ app_name }}.nginx dest=/etc/nginx/sites-available/{{ app_name }}
+  - name: remove default nginx site config
+    file: path=/etc/nginx/sites-enabled/default state=absent
+  - name: enable nginx site
+    file:
+      src: /etc/nginx/sites-available/{{ app_name }}
+      dest: /etc/nginx/sites-enabled/default
+      state: link
+      force: yes
+  - name: restart nginx
+    service: name=nginx state=restarted enabled=yes
+  - name: open firewall for nginx
+    ufw:
+      rule: allow
+      name: Nginx Full
